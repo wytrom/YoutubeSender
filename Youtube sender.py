@@ -1,55 +1,46 @@
 import os
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
+from google.oauth2.credentials import Credentials
 from googleapiclient.http import MediaFileUpload
 
-# Credenciais do YouTube
-DEVELOPER_KEY = "AIzaSyDiH8KAkBw1KWeQIDXeQe-m_8biq0nkjEA"
-YOUTUBE_API_SERVICE_NAME = "youtube"
-YOUTUBE_API_VERSION = "v3"
+# Defina o caminho da pasta com os vídeos
+VIDEOS_FOLDER = "path/to/videos"
 
-# Pasta com vídeos
-VIDEOS_FOLDER = "C:\\Users\\Administrator\\Desktop\\Youtube sender1\\videos"
+# Carregar as credenciais a partir de um arquivo json
+creds = Credentials.from_authorized_user_file("credentials.json", ["https://www.googleapis.com/auth/youtube"])
 
-def upload_video(video_path, title, tags):
+# Instanciar o cliente da API do YouTube
+youtube = build("youtube", "v3", credentials=creds)
+
+# Obter a lista de vídeos na pasta
+videos = [f for f in os.listdir(VIDEOS_FOLDER) if f.endswith(".mp4")]
+
+for video in videos:
     try:
-        youtube = build(YOUTUBE_API_SERVICE_NAME, YOUTUBE_API_VERSION, developerKey=DEVELOPER_KEY)
+        # Obter o nome do vídeo e gerar o título, tags e nome do arquivo
+        video_name = video.split(".")[0]
+        title = "Título do vídeo " + video_name
+        tags = ["tag1", "tag2", "tag3"]
+        file_name = video_name + ".mp4"
 
-        # Cria o objeto MediaFileUpload
-        media = MediaFileUpload(video_path, resumable=True)
-
-        # Cria o objeto video
-        video = youtube.videos().insert(
+        # Fazer upload do vídeo
+        request = youtube.videos().insert(
             part="snippet,status",
             body={
                 "snippet": {
                     "title": title,
+                    "description": "Descrição do vídeo",
                     "tags": tags,
-                    "categoryId": "22"
+                    "categoryId": 22
                 },
                 "status": {
                     "privacyStatus": "public"
                 }
             },
-            media_body=media
-        ).execute()
-
-        print("Upload realizado com sucesso:", video['id'])
-
+            media_body=MediaFileUpload(os.path.join(VIDEOS_FOLDER, file_name), resumable=True)
+        )
+        response = request.execute()
+        print(f"Vídeo {title} enviado com sucesso. ID do vídeo: {response['id']}")
     except HttpError as error:
-        print("An error occurred:", error)
-        video = None
-
-    return video
-
-# Obtém todos os arquivos de vídeo na pasta
-videos = [f for f in os.listdir(VIDEOS_FOLDER) if f.endswith(".mp4")]
-
-# Percorre cada vídeo
-for video in videos:
-    video_path = os.path.join(VIDEOS_FOLDER, video)
-    title = video.replace(".mp4", "")
-    tags = title.split(" ")
-
-    # Envia o vídeo para o YouTube
-    upload_video(video_path, title, tags)
+        print(f"An error occurred: {error}")
